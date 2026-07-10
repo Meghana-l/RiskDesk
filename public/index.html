@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RiskDesk · Fund Risk Monitoring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --paper:#F8F9FA; --panel:#FFFFFF; --ink:#1B2A38; --ink-soft:#51616F;
+  --line:#E2E6EA; --steel:#2F5D7C; --steel-soft:#E9F1F6;
+  --green:#1E7B4D; --green-soft:#E6F2EB; --red:#B23A3A; --red-soft:#F9ECEC;
+  --amber:#B07A1E; --amber-soft:#FAF2E2; --mono:'IBM Plex Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Libre Franklin',sans-serif;font-size:14px;line-height:1.5}
+
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:0 28px}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;height:58px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font-size:19px;font-weight:800;letter-spacing:-.3px}
+.brand h1 span{color:var(--steel)}
+.brand small{font-size:11px;color:var(--ink-soft);letter-spacing:.4px;text-transform:uppercase}
+.env{font-family:var(--mono);font-size:11px;color:var(--ink-soft);display:flex;gap:14px;align-items:center}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-right:5px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+.ticker{background:var(--ink);color:#E8ECEF;overflow:hidden;white-space:nowrap;font-family:var(--mono);font-size:12px;height:32px;display:flex;align-items:center}
+.ticker-track{display:inline-block;padding-left:100%;animation:scroll 55s linear infinite}
+@keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+.ticker b{color:#7FB3D5;font-weight:600}
+.ticker .up{color:#8FD1A8}.ticker .dn{color:#E39A9A}
+.ticker-item{margin-right:44px}
+
+nav{display:flex;gap:2px;padding:0 28px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
+nav button{background:none;border:none;padding:12px 16px;font-family:inherit;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+nav button.active{color:var(--ink);border-bottom-color:var(--steel)}
+nav button:hover{color:var(--ink)}
+
+main{max-width:1240px;margin:0 auto;padding:24px 28px 60px}
+.tab{display:none}.tab.active{display:block}
+h2{font-size:16px;font-weight:700;margin-bottom:4px}
+.sub{color:var(--ink-soft);font-size:13px;margin-bottom:18px}
+
+.grid{display:grid;gap:14px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
+.kpi .label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-soft);font-weight:600}
+.kpi .value{font-family:var(--mono);font-size:24px;font-weight:600;margin:6px 0 2px}
+.kpi .note{font-size:12px;color:var(--ink-soft)}
+.card h3{font-size:13px;font-weight:700;margin-bottom:12px}
+.chart-wrap{position:relative;height:250px}
+.chart-wrap.tall{height:310px}
+.mt{margin-top:14px}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);padding:8px 10px;border-bottom:2px solid var(--line);font-weight:700}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.mono{font-family:var(--mono);font-size:12px}
+.num{font-family:var(--mono);font-size:12px;text-align:right}
+th.num{text-align:right}
+.tag{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:3px;white-space:nowrap}
+.tag.ok{background:var(--green-soft);color:var(--green)}
+.tag.watch{background:var(--amber-soft);color:var(--amber)}
+.tag.breach{background:var(--red-soft);color:var(--red)}
+.tag.info{background:var(--steel-soft);color:var(--steel)}
+
+.util{background:#EEF1F4;border-radius:4px;height:16px;position:relative;min-width:110px;overflow:hidden}
+.util-fill{height:100%;border-radius:4px}
+.util-txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600}
+
+.ai-btn{background:var(--ink);color:#fff;border:none;border-radius:6px;padding:11px 20px;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer}
+.ai-btn:hover{background:#2A3F52}
+.ai-btn:disabled{opacity:.5;cursor:wait}
+.ai-out{margin-top:18px;line-height:1.65;font-size:13.5px}
+.ai-out h4{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--steel);margin:16px 0 8px}
+.ai-out ol{margin-left:20px}
+.ai-out li{margin-bottom:8px}
+.ai-note{font-size:12px;color:var(--ink-soft);margin-top:10px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+footer{text-align:center;color:var(--ink-soft);font-size:11.5px;padding:26px 0;border-top:1px solid var(--line);margin-top:40px}
+@media(max-width:900px){.g4{grid-template-columns:repeat(2,1fr)}.g2,.g3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr-top">
+    <div class="brand">
+      <h1>Risk<span>Desk</span></h1>
+      <small>Fund Risk Monitoring · Independent Oversight</small>
+    </div>
+    <div class="env">
+      <span><span class="dot"></span>LIVE</span>
+      <span id="clock">—</span>
+    </div>
+  </div>
+</header>
+
+<div class="ticker"><div class="ticker-track" id="tickerTrack"></div></div>
+
+<nav>
+  <button class="active" data-tab="overview">Overview</button>
+  <button data-tab="funds">Funds</button>
+  <button data-tab="stress">Stress Tests</button>
+  <button data-tab="fi">Fixed Income</button>
+  <button data-tab="limits">Limits &amp; Governance</button>
+  <button data-tab="ai">Risk Commentary</button>
+</nav>
+
+<main>
+
+<!-- ================= OVERVIEW ================= -->
+<section class="tab active" id="tab-overview">
+  <h2>Fund Complex Overview</h2>
+  <p class="sub">Daily risk monitoring across six funds. VaR is computed by historical simulation over the trailing year of <b>real market factor moves</b> — Treasury yields, IG and HY credit spreads, and equity returns — applied to each fund's exposures. <span id="dataMode" class="mono"></span></p>
+  <div class="grid g4">
+    <div class="card kpi"><div class="label">Complex AUM</div><div class="value" id="k-aum">—</div><div class="note">6 funds, 4 strategies</div></div>
+    <div class="card kpi"><div class="label">Complex 1-Day VaR (95%)</div><div class="value" id="k-var95">—</div><div class="note" id="k-var95-note">diversified, historical simulation</div></div>
+    <div class="card kpi"><div class="label">Complex 1-Day VaR (99%)</div><div class="value" id="k-var99">—</div><div class="note">tail, historical simulation</div></div>
+    <div class="card kpi"><div class="label">Diversification Benefit</div><div class="value" id="k-div">—</div><div class="note">vs sum of standalone VaR</div></div>
+  </div>
+  <div class="grid g2 mt">
+    <div class="card">
+      <h3>Complex Daily P&amp;L Distribution · Trailing Year <span class="mono" style="font-weight:400;color:var(--ink-soft)">· VaR marked</span></h3>
+      <div class="chart-wrap tall"><canvas id="chDist"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>VaR Limit Utilization by Fund</h3>
+      <table>
+        <thead><tr><th>Fund</th><th class="num">VaR 95% ($M)</th><th class="num">Limit ($M)</th><th>Utilization</th><th>Status</th></tr></thead>
+        <tbody id="utilBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card mt">
+    <h3>Watch Items</h3>
+    <table>
+      <thead><tr><th>Item</th><th>Detail</th><th>Status</th></tr></thead>
+      <tbody id="watchBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= FUNDS ================= -->
+<section class="tab" id="tab-funds">
+  <h2>Fund Risk Profiles</h2>
+  <p class="sub">Standalone risk metrics per fund. DV01 and duration measure rate sensitivity; spread duration measures credit sensitivity; beta measures equity sensitivity.</p>
+  <div class="card">
+    <table>
+      <thead><tr><th>Fund</th><th>Strategy</th><th class="num">NAV ($M)</th><th class="num">Duration</th><th class="num">Spread Dur</th><th class="num">Equity Beta</th><th class="num">DV01 ($K)</th><th class="num">VaR 95% ($M)</th><th class="num">VaR 99% ($M)</th><th class="num">Max DD 1Y</th></tr></thead>
+      <tbody id="fundsBody"></tbody>
+    </table>
+  </div>
+  <div class="grid g2 mt">
+    <div class="card">
+      <h3>Standalone VaR 95% vs Limits</h3>
+      <div class="chart-wrap tall"><canvas id="chVarBars"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Trailing-Year Cumulative P&amp;L by Fund <span class="mono" style="font-weight:400;color:var(--ink-soft)">· % of NAV</span></h3>
+      <div class="chart-wrap tall"><canvas id="chCum"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= STRESS ================= -->
+<section class="tab" id="tab-stress">
+  <h2>Stress Tests &amp; Scenario Analysis</h2>
+  <p class="sub">Deterministic shocks applied to current fund exposures. Losses shown as % of NAV and in dollars.</p>
+  <div class="card">
+    <table>
+      <thead><tr><th>Scenario</th><th>Shock Definition</th><th class="num">Core FI</th><th class="num">Short Gov</th><th class="num">HY Credit</th><th class="num">EM Debt</th><th class="num">Equity</th><th class="num">Multi-Asset</th><th class="num">Complex ($M)</th></tr></thead>
+      <tbody id="stressBody"></tbody>
+    </table>
+  </div>
+  <div class="card mt">
+    <h3>Complex Loss by Scenario</h3>
+    <div class="chart-wrap tall"><canvas id="chStress"></canvas></div>
+  </div>
+</section>
+
+<!-- ================= FIXED INCOME ================= -->
+<section class="tab" id="tab-fi">
+  <h2>Fixed Income Risk</h2>
+  <p class="sub">Live rates and credit conditions behind the fixed income product suite. Sourced in real time from the Federal Reserve (FRED).</p>
+  <div class="grid g4">
+    <div class="card kpi"><div class="label">10-Year Treasury</div><div class="value" id="fi-10y">—</div><div class="note" id="fi-10y-d"></div></div>
+    <div class="card kpi"><div class="label">2s10s Spread</div><div class="value" id="fi-2s10s">—</div><div class="note">curve shape</div></div>
+    <div class="card kpi"><div class="label">IG OAS</div><div class="value" id="fi-ig">—</div><div class="note" id="fi-ig-d"></div></div>
+    <div class="card kpi"><div class="label">HY OAS</div><div class="value" id="fi-hy">—</div><div class="note" id="fi-hy-d"></div></div>
+  </div>
+  <div class="grid g2 mt">
+    <div class="card">
+      <h3>Live Treasury Yield Curve</h3>
+      <div class="chart-wrap"><canvas id="chCurve"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Credit Spreads · Trailing Year <span class="mono" style="font-weight:400;color:var(--ink-soft)">· OAS, %</span></h3>
+      <div class="chart-wrap"><canvas id="chSpreads"></canvas></div>
+    </div>
+  </div>
+  <div class="card mt">
+    <h3>Rate Sensitivity by Fund · P&amp;L Impact of +100bp Parallel Shift</h3>
+    <div class="chart-wrap"><canvas id="chRateSens"></canvas></div>
+  </div>
+</section>
+
+<!-- ================= LIMITS ================= -->
+<section class="tab" id="tab-limits">
+  <h2>Limits &amp; Risk Governance</h2>
+  <p class="sub">The independent risk governance framework: limit structure, current standing, breach log, and escalation path.</p>
+  <div class="grid g3">
+    <div class="card kpi"><div class="label">Limits Monitored</div><div class="value">24</div></div>
+    <div class="card kpi"><div class="label">In Watch Status</div><div class="value" id="l-watch" style="color:var(--amber)">—</div></div>
+    <div class="card kpi"><div class="label">Active Breaches</div><div class="value" id="l-breach" style="color:var(--red)">—</div></div>
+  </div>
+  <div class="card mt">
+    <h3>Limit Framework</h3>
+    <table>
+      <thead><tr><th>Limit Type</th><th>Scope</th><th>Threshold</th><th>Monitoring</th><th>Escalation Path</th></tr></thead>
+      <tbody>
+        <tr><td>VaR limit (95%, 1-day)</td><td>Per fund</td><td class="mono">Board-approved, per fund</td><td>Daily</td><td>PM → AM Risk → CRO → Board</td></tr>
+        <tr><td>Drawdown control</td><td>Per fund</td><td class="mono">10% (FI) / 15% (equity, multi-asset)</td><td>Daily</td><td>PM notification at 80% of control</td></tr>
+        <tr><td>Issuer concentration</td><td>Per fund</td><td class="mono">5% single issuer (ex-sovereign)</td><td>Daily</td><td>Pre-trade block + AM Risk review</td></tr>
+        <tr><td>Sector concentration</td><td>Credit funds</td><td class="mono">25% single sector</td><td>Weekly</td><td>AM Risk review</td></tr>
+        <tr><td>Liquidity coverage</td><td>Per fund</td><td class="mono">≥ 3× stressed redemption estimate</td><td>Weekly</td><td>AM Risk → Liquidity Committee</td></tr>
+        <tr><td>Counterparty exposure</td><td>Complex</td><td class="mono">Rating-tiered net exposure caps</td><td>Daily</td><td>AM Risk → Credit Risk</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card mt">
+    <h3>Breach &amp; Exception Log · Trailing 90 Days</h3>
+    <table>
+      <thead><tr><th>Date</th><th>Fund</th><th>Limit</th><th>Peak</th><th>Resolution</th><th>Status</th></tr></thead>
+      <tbody id="breachBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= AI ================= -->
+<section class="tab" id="tab-ai">
+  <h2>Daily Risk Commentary</h2>
+  <p class="sub">Sends the live risk snapshot — per-fund VaR and utilization, stress results, exposures, and current market conditions — to an LLM risk analyst and returns the daily commentary with escalation items.</p>
+  <div class="card">
+    <button class="ai-btn" id="aiBtn">Generate Today's Commentary</button>
+    <div class="ai-out" id="aiOut"></div>
+    <div class="ai-note" id="aiNote"></div>
+  </div>
+</section>
+
+<footer>RiskDesk · Independent fund risk monitoring · Fund exposures are modeled; market data and risk factors are live</footer>
+</main>
+
+<script>
+/* =====================================================
+   FUND COMPLEX (modeled exposures)
+===================================================== */
+const FUNDS = [
+  {key:'corefi', name:'Core Fixed Income Fund', strat:'Investment Grade FI', nav:2400, dur:6.1, sdIG:3.8, sdHY:0,   beta:0,    varLimit:16.0, ddLimit:10},
+  {key:'shortgov', name:'Short Duration Government Fund', strat:'Government FI', nav:1100, dur:1.9, sdIG:0.2, sdHY:0, beta:0,  varLimit:4.0,  ddLimit:10},
+  {key:'hy', name:'High Yield Credit Fund', strat:'High Yield Credit', nav:850, dur:3.4, sdIG:0, sdHY:4.1, beta:0.25, varLimit:6.0, ddLimit:10},
+  {key:'emd', name:'Emerging Markets Debt Fund', strat:'EM Debt', nav:620, dur:5.2, sdIG:0, sdHY:4.8, beta:0.30, varLimit:6.5, ddLimit:15},
+  {key:'eq', name:'Global Equity Growth Fund', strat:'Global Equity', nav:1800, dur:0, sdIG:0, sdHY:0, beta:1.05, varLimit:38.0, ddLimit:15},
+  {key:'ma', name:'Multi-Asset Income Fund', strat:'Multi-Asset', nav:960, dur:3.2, sdIG:2.0, sdHY:0.6, beta:0.45, varLimit:11.0, ddLimit:15}
+];
+
+/* =====================================================
+   RISK ENGINE
+   Historical simulation VaR using real factor history:
+   dY10 (decimal), dOAS_IG (decimal), dOAS_HY (decimal), rEQ (return)
+===================================================== */
+const engine = { factors:null, live:false, results:null };
+
+function toChanges(series, isReturn){
+  const out = [];
+  for (let i=1;i<series.length;i++){
+    const a = series[i-1].value, b = series[i].value;
+    if (!isFinite(a) || !isFinite(b)) continue;
+    out.push(isReturn ? (b-a)/a : (b-a)/100); // yields & OAS arrive in %, convert to decimal
+  }
+  return out;
+}
+
+// deterministic fallback factor history (reference data) so the desk never goes dark
+function fallbackFactors(n=240){
+  const dY=[], dIG=[], dHY=[], rEQ=[];
+  let seed = 42;
+  const rnd = () => { seed = (seed*1103515245+12345)%2147483648; return seed/2147483648 - 0.5; };
+  for (let i=0;i<n;i++){
+    const stress = (i%67===0) ? 3.2 : 1;
+    dY.push(rnd()*0.0011*stress);
+    dIG.push(rnd()*0.0004*stress);
+    dHY.push(rnd()*0.0013*stress);
+    rEQ.push(rnd()*0.024*stress);
+  }
+  return { dY, dIG, dHY, rEQ, n };
+}
+
+function buildFactors(s){
+  try{
+    const dY  = toChanges(s.y10, false);
+    const dIG = toChanges(s.oasIG, false);
+    const dHY = toChanges(s.oasHY, false);
+    const rEQ = toChanges(s.sp500, true);
+    const n = Math.min(dY.length, dIG.length, dHY.length, rEQ.length);
+    if (n < 60) return null;
+    return { dY:dY.slice(-n), dIG:dIG.slice(-n), dHY:dHY.slice(-n), rEQ:rEQ.slice(-n), n };
+  }catch(e){ return null; }
+}
+
+function fundPnlSeries(f, F){
+  const out = new Array(F.n);
+  for (let i=0;i<F.n;i++){
+    out[i] = f.nav * ( -f.dur*F.dY[i] - f.sdIG*F.dIG[i] - f.sdHY*F.dHY[i] + f.beta*F.rEQ[i] );
+  }
+  return out; // $M
+}
+
+function percentileLoss(pnl, q){
+  const sorted = [...pnl].sort((a,b)=>a-b);
+  const idx = Math.max(0, Math.floor(q * sorted.length));
+  return Math.max(0, -sorted[idx]); // loss as positive $M
+}
+
+function maxDrawdown(pnl, nav){
+  let cum=0, peak=0, mdd=0;
+  for (const x of pnl){ cum+=x; peak=Math.max(peak,cum); mdd=Math.max(mdd, peak-cum); }
+  return mdd/nav*100; // % of NAV
+}
+
+function runEngine(F){
+  const perFund = FUNDS.map(f=>{
+    const pnl = fundPnlSeries(f,F);
+    return {
+      f, pnl,
+      var95: percentileLoss(pnl, 0.05),
+      var99: percentileLoss(pnl, 0.01),
+      dv01: f.dur * f.nav * 1000 * 0.0001, // $K per bp
+      mdd: maxDrawdown(pnl, f.nav)
+    };
+  });
+  const complexPnl = new Array(F.n).fill(0);
+  perFund.forEach(r=>r.pnl.forEach((x,i)=>complexPnl[i]+=x));
+  const var95 = percentileLoss(complexPnl, 0.05);
+  const var99 = percentileLoss(complexPnl, 0.01);
+  const sumStandalone = perFund.reduce((a,r)=>a+r.var95,0);
+  engine.results = { perFund, complexPnl, var95, var99, divBenefit: (1 - var95/sumStandalone)*100 };
+}
+
+/* =====================================================
+   STRESS SCENARIOS (deterministic)
+===================================================== */
+const SCENARIOS = [
+  {name:'Rates +100bp parallel', dY:0.01, dIG:0, dHY:0, rEQ:0},
+  {name:'Rates +200bp parallel', dY:0.02, dIG:0, dHY:0, rEQ:0},
+  {name:'Rates +300bp parallel', dY:0.03, dIG:0.002, dHY:0.006, rEQ:-0.08},
+  {name:'HY spreads +200bp', dY:0, dIG:0.0006, dHY:0.02, rEQ:-0.04},
+  {name:'Equity −20%', dY:-0.004, dIG:0.0008, dHY:0.009, rEQ:-0.20},
+  {name:'2020-style flight to quality', dY:-0.009, dIG:0.0025, dHY:0.055, rEQ:-0.30},
+  {name:'Stagflation combo', dY:0.015, dIG:0.0015, dHY:0.025, rEQ:-0.15}
+];
+const SHOCK_DESC = {
+  'Rates +100bp parallel':'Parallel Treasury shift +100bp',
+  'Rates +200bp parallel':'Parallel Treasury shift +200bp',
+  'Rates +300bp parallel':'+300bp rates, mild credit and equity spillover',
+  'HY spreads +200bp':'HY OAS +200bp, IG +6bp, equities −4%',
+  'Equity −20%':'Equities −20%, rally in rates, credit widens',
+  '2020-style flight to quality':'Rates −90bp, HY +550bp, equities −30%',
+  'Stagflation combo':'Rates +150bp, HY +250bp, equities −15%'
+};
+
+function stressFund(f, sc){
+  return f.nav * ( -f.dur*sc.dY - f.sdIG*sc.dIG - f.sdHY*sc.dHY + f.beta*sc.rEQ );
+}
+
+/* =====================================================
+   RENDERING
+===================================================== */
+Chart.defaults.font.family = "'Libre Franklin',sans-serif";
+Chart.defaults.color = '#51616F';
+Chart.defaults.borderColor = '#E6EAED';
+
+const $ = id => document.getElementById(id);
+const money = v => '$' + Math.abs(v).toLocaleString('en-US',{maximumFractionDigits:1}) + 'M';
+
+function utilCell(pct){
+  const color = pct >= 100 ? 'var(--red)' : pct >= 85 ? 'var(--amber)' : 'var(--green)';
+  const w = Math.min(100, pct);
+  return `<div class="util"><div class="util-fill" style="width:${w}%;background:${color}"></div><div class="util-txt">${pct.toFixed(0)}%</div></div>`;
+}
+function statusTag(pct){
+  if (pct >= 100) return '<span class="tag breach">Breach</span>';
+  if (pct >= 85) return '<span class="tag watch">Watch</span>';
+  return '<span class="tag ok">Within Limit</span>';
+}
+
+let chDist, chVarBars, chCum, chStress, chCurve, chSpreads, chRateSens;
+
+function renderAll(){
+  const R = engine.results;
+  const aum = FUNDS.reduce((a,f)=>a+f.nav,0);
+  $('k-aum').textContent = '$' + (aum/1000).toFixed(1) + 'B';
+  $('k-var95').textContent = money(R.var95);
+  $('k-var99').textContent = money(R.var99);
+  $('k-div').textContent = R.divBenefit.toFixed(0) + '%';
+  $('dataMode').textContent = engine.live ? '· Risk factors: live FRED history' : '· Risk factors: reference history (live feed unavailable)';
+
+  // utilization table
+  $('utilBody').innerHTML = R.perFund.map(r=>{
+    const pct = r.var95 / r.f.varLimit * 100;
+    return `<tr><td>${r.f.name}</td><td class="num">${r.var95.toFixed(1)}</td><td class="num">${r.f.varLimit.toFixed(1)}</td><td>${utilCell(pct)}</td><td>${statusTag(pct)}</td></tr>`;
+  }).join('');
+
+  // watch items
+  const watch = [];
+  R.perFund.forEach(r=>{
+    const pct = r.var95/r.f.varLimit*100;
+    if (pct >= 100) watch.push([`${r.f.name} VaR limit`, `VaR ${money(r.var95)} vs limit ${money(r.f.varLimit)} (${pct.toFixed(0)}%)`, '<span class="tag breach">Breach</span>']);
+    else if (pct >= 85) watch.push([`${r.f.name} VaR utilization`, `Running at ${pct.toFixed(0)}% of board limit`, '<span class="tag watch">Watch</span>']);
+    if (r.mdd >= r.f.ddLimit*0.8) watch.push([`${r.f.name} drawdown control`, `Trailing-year max drawdown ${r.mdd.toFixed(1)}% vs ${r.f.ddLimit}% control`, r.mdd >= r.f.ddLimit ? '<span class="tag breach">Breach</span>' : '<span class="tag watch">Watch</span>']);
+  });
+  watch.push(['HY sector concentration', 'Energy at 21.8% vs 25% sector limit in High Yield Credit Fund', '<span class="tag watch">Watch</span>']);
+  watch.push(['Regulatory reporting', 'Quarterly board risk report due; stress test section refreshed today', '<span class="tag info">On Track</span>']);
+  $('watchBody').innerHTML = watch.map(w=>`<tr><td>${w[0]}</td><td>${w[1]}</td><td>${w[2]}</td></tr>`).join('');
+
+  // limits counters
+  const nWatch = watch.filter(w=>w[2].includes('watch') || w[2].includes('Watch')).length;
+  const nBreach = watch.filter(w=>w[2].includes('breach') || w[2].includes('Breach')).length;
+  $('l-watch').textContent = nWatch;
+  $('l-breach').textContent = nBreach;
+
+  // funds table
+  $('fundsBody').innerHTML = R.perFund.map(r=>`<tr>
+    <td>${r.f.name}</td><td>${r.f.strat}</td>
+    <td class="num">${r.f.nav.toLocaleString()}</td>
+    <td class="num">${r.f.dur.toFixed(1)}</td>
+    <td class="num">${(r.f.sdIG + r.f.sdHY).toFixed(1)}</td>
+    <td class="num">${r.f.beta.toFixed(2)}</td>
+    <td class="num">${r.dv01.toFixed(0)}</td>
+    <td class="num">${r.var95.toFixed(1)}</td>
+    <td class="num">${r.var99.toFixed(1)}</td>
+    <td class="num">${r.mdd.toFixed(1)}%</td>
+  </tr>`).join('');
+
+  // distribution histogram
+  const pnl = R.complexPnl;
+  const min = Math.min(...pnl), max = Math.max(...pnl);
+  const bins = 30, width = (max-min)/bins || 1;
+  const counts = new Array(bins).fill(0);
+  pnl.forEach(x=>counts[Math.min(bins-1, Math.floor((x-min)/width))]++);
+  const labels = counts.map((_,i)=>(min + (i+0.5)*width).toFixed(0));
+  const varBin = Math.min(bins-1, Math.max(0, Math.floor((-R.var95-min)/width)));
+  if (chDist) chDist.destroy();
+  chDist = new Chart($('chDist'),{
+    type:'bar',
+    data:{labels,datasets:[{data:counts,backgroundColor:counts.map((_,i)=> i<=varBin ? 'rgba(178,58,58,.75)' : 'rgba(47,93,124,.65)'),borderRadius:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>'P&L ≈ $'+c[0].label+'M'}}},
+      scales:{x:{title:{display:true,text:'Daily P&L ($M) · red bins beyond 95% VaR'},ticks:{maxTicksLimit:9}},y:{title:{display:true,text:'Days'}}}}
+  });
+
+  // VaR bars vs limits
+  if (chVarBars) chVarBars.destroy();
+  chVarBars = new Chart($('chVarBars'),{
+    type:'bar',
+    data:{labels:R.perFund.map(r=>r.f.name.replace(' Fund','')),datasets:[
+      {label:'VaR 95% ($M)',data:R.perFund.map(r=>+r.var95.toFixed(1)),backgroundColor:'#2F5D7C',borderRadius:3},
+      {label:'Board Limit ($M)',data:R.perFund.map(r=>r.f.varLimit),backgroundColor:'#D8B25C',borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{x:{ticks:{maxRotation:30}}}}
+  });
+
+  // cumulative P&L (% NAV)
+  const step = Math.max(1, Math.floor(R.perFund[0].pnl.length/120));
+  const colors = ['#2F5D7C','#7FA6BD','#B23A3A','#B07A1E','#1E7B4D','#6C4A8E'];
+  if (chCum) chCum.destroy();
+  chCum = new Chart($('chCum'),{
+    type:'line',
+    data:{labels:R.perFund[0].pnl.filter((_,i)=>i%step===0).map((_,i)=>i),
+      datasets:R.perFund.map((r,idx)=>{
+        let cum=0; const series=[];
+        r.pnl.forEach((x,i)=>{cum+=x; if(i%step===0) series.push(+(cum/r.f.nav*100).toFixed(2));});
+        return {label:r.f.name.replace(' Fund',''),data:series,borderColor:colors[idx],pointRadius:0,borderWidth:1.8,tension:.25};
+      })},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{x:{display:false},y:{title:{display:true,text:'% of NAV'}}}}
+  });
+
+  // stress table + chart
+  const rows = SCENARIOS.map(sc=>{
+    const per = FUNDS.map(f=>stressFund(f,sc));
+    const total = per.reduce((a,b)=>a+b,0);
+    return {sc, per, total};
+  });
+  $('stressBody').innerHTML = rows.map(r=>`<tr>
+    <td><b>${r.sc.name}</b></td><td style="font-size:11.5px;color:var(--ink-soft)">${SHOCK_DESC[r.sc.name]}</td>
+    ${r.per.map((v,i)=>`<td class="num" style="color:${v<0?'var(--red)':'var(--green)'}">${(v/FUNDS[i].nav*100).toFixed(1)}%</td>`).join('')}
+    <td class="num" style="color:${r.total<0?'var(--red)':'var(--green)'};font-weight:600">${r.total<0?'−':''}${Math.abs(r.total).toFixed(0)}</td>
+  </tr>`).join('');
+  if (chStress) chStress.destroy();
+  chStress = new Chart($('chStress'),{
+    type:'bar',
+    data:{labels:rows.map(r=>r.sc.name),datasets:[{data:rows.map(r=>+r.total.toFixed(0)),backgroundColor:rows.map(r=>r.total<0?'rgba(178,58,58,.8)':'rgba(30,123,77,.8)'),borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Complex P&L ($M)'}}}}
+  });
+
+  // rate sensitivity chart (+100bp)
+  const sens = FUNDS.map(f=>stressFund(f,SCENARIOS[0]));
+  if (chRateSens) chRateSens.destroy();
+  chRateSens = new Chart($('chRateSens'),{
+    type:'bar',
+    data:{labels:FUNDS.map(f=>f.name.replace(' Fund','')),datasets:[{data:sens.map(v=>+v.toFixed(1)),backgroundColor:'rgba(178,58,58,.75)',borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'P&L ($M)'}}}}
+  });
+
+  // breach log
+  const dyn = [];
+  R.perFund.forEach(r=>{
+    const pct = r.var95/r.f.varLimit*100;
+    if (pct>=85) dyn.push([new Date().toISOString().slice(0,10), r.f.name.replace(' Fund',''), 'VaR 95% limit', pct.toFixed(0)+'%', pct>=100?'PM de-risking plan requested; daily check-in with AM Risk':'Heightened monitoring; PM notified', pct>=100?'<span class="tag breach">Open</span>':'<span class="tag watch">Monitoring</span>']);
+  });
+  const staticLog = [
+    ['2026-06-18','HY Credit','Issuer concentration (pre-trade)','5.3%','Trade blocked pre-execution; position resized to 4.6%','<span class="tag ok">Closed</span>'],
+    ['2026-05-27','EM Debt','Liquidity coverage','2.7×','Liquidity sleeve raised to 3.4×; verified by Liquidity Committee','<span class="tag ok">Closed</span>'],
+    ['2026-04-30','Multi-Asset','Drawdown control (80% notify)','12.1%','PM notified per framework; exposure trimmed, recovered within control','<span class="tag ok">Closed</span>']
+  ];
+  $('breachBody').innerHTML = dyn.concat(staticLog).map(r=>`<tr><td class="mono">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="mono">${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`).join('');
+}
+
+/* =====================================================
+   FIXED INCOME (live)
+===================================================== */
+function lastVal(s){ return s && s.length ? s[s.length-1].value : null; }
+function prevVal(s){ return s && s.length>1 ? s[s.length-2].value : lastVal(s); }
+
+function renderFI(s){
+  const y10 = lastVal(s.y10), y2 = lastVal(s.y2);
+  if (y10 != null){
+    $('fi-10y').textContent = y10.toFixed(2)+'%';
+    const d = y10 - prevVal(s.y10);
+    $('fi-10y-d').textContent = (d>=0?'+':'')+(d*100).toFixed(0)+'bp vs prior print';
+  }
+  if (y10!=null && y2!=null) $('fi-2s10s').textContent = ((y10-y2)*100).toFixed(0)+'bp';
+  const ig = lastVal(s.oasIG), hy = lastVal(s.oasHY);
+  if (ig!=null){ $('fi-ig').textContent = (ig*100).toFixed(0)+'bp'; $('fi-ig-d').textContent = 'IG corporate index OAS'; }
+  if (hy!=null){ $('fi-hy').textContent = (hy*100).toFixed(0)+'bp'; $('fi-hy-d').textContent = 'HY index OAS'; }
+
+  // yield curve
+  const curve = [['3M',lastVal(s.y3m)],['2Y',y2],['5Y',lastVal(s.y5)],['10Y',y10],['30Y',lastVal(s.y30)]].filter(p=>p[1]!=null);
+  if (curve.length>=3){
+    if (chCurve) chCurve.destroy();
+    chCurve = new Chart($('chCurve'),{
+      type:'line',
+      data:{labels:curve.map(p=>p[0]),datasets:[{data:curve.map(p=>p[1]),borderColor:'#2F5D7C',backgroundColor:'rgba(47,93,124,.08)',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:'#2F5D7C',borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'Yield %'},grace:'8%'}}}
+    });
+  }
+  // spreads history
+  if (s.oasHY?.length > 30 && s.oasIG?.length > 30){
+    if (chSpreads) chSpreads.destroy();
+    const n = Math.min(s.oasHY.length, s.oasIG.length);
+    const hyS = s.oasHY.slice(-n), igS = s.oasIG.slice(-n);
+    chSpreads = new Chart($('chSpreads'),{
+      type:'line',
+      data:{labels:hyS.map(o=>o.date.slice(5)),datasets:[
+        {label:'HY OAS',data:hyS.map(o=>o.value),borderColor:'#B23A3A',pointRadius:0,borderWidth:2,tension:.25},
+        {label:'IG OAS',data:igS.map(o=>o.value),borderColor:'#2F5D7C',pointRadius:0,borderWidth:2,tension:.25}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{x:{ticks:{maxTicksLimit:8}},y:{title:{display:true,text:'OAS %'}}}}
+    });
+  }
+}
+
+/* =====================================================
+   TICKER + CLOCK
+===================================================== */
+function tickClock(){
+  $('clock').textContent = new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(tickClock,1000); tickClock();
+
+function pushTicker(s){
+  const items = [];
+  if (s){
+    const arrow = ser => lastVal(ser) >= prevVal(ser) ? '<span class="up">▲</span>' : '<span class="dn">▼</span>';
+    if (lastVal(s.y2)!=null) items.push(`<b>2Y</b> ${lastVal(s.y2).toFixed(2)}% ${arrow(s.y2)}`);
+    if (lastVal(s.y10)!=null) items.push(`<b>10Y</b> ${lastVal(s.y10).toFixed(2)}% ${arrow(s.y10)}`);
+    if (lastVal(s.y30)!=null) items.push(`<b>30Y</b> ${lastVal(s.y30).toFixed(2)}% ${arrow(s.y30)}`);
+    if (lastVal(s.oasHY)!=null) items.push(`<b>HY OAS</b> ${(lastVal(s.oasHY)*100).toFixed(0)}bp ${arrow(s.oasHY)}`);
+    if (lastVal(s.oasIG)!=null) items.push(`<b>IG OAS</b> ${(lastVal(s.oasIG)*100).toFixed(0)}bp ${arrow(s.oasIG)}`);
+    if (lastVal(s.vix)!=null) items.push(`<b>VIX</b> ${lastVal(s.vix).toFixed(2)} ${arrow(s.vix)}`);
+    if (lastVal(s.sp500)!=null) items.push(`<b>S&amp;P 500</b> ${lastVal(s.sp500).toLocaleString()} ${arrow(s.sp500)}`);
+  }
+  if (engine.results){
+    items.push(`<b>COMPLEX VaR 95%</b> ${money(engine.results.var95)}`);
+    const worst = engine.results.perFund.reduce((a,r)=> (r.var95/r.f.varLimit > a.pct ? {pct:r.var95/r.f.varLimit, name:r.f.name} : a), {pct:0});
+    items.push(`<b>PEAK UTILIZATION</b> ${(worst.pct*100).toFixed(0)}% · ${worst.name.replace(' Fund','')}`);
+  }
+  $('tickerTrack').innerHTML = items.map(i=>`<span class="ticker-item">${i}</span>`).join('') || '<span class="ticker-item">Loading live market data…</span>';
+}
+
+/* =====================================================
+   AI COMMENTARY
+===================================================== */
+$('aiBtn').addEventListener('click', async ()=>{
+  const btn = $('aiBtn'), out = $('aiOut'), note = $('aiNote');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Reviewing the desk…';
+  out.innerHTML = ''; note.textContent = '';
+  const R = engine.results, s = engine.market || {};
+  const snapshot = {
+    market: {
+      treasury_10y_pct: lastVal(s.y10), curve_2s10s_bp: (lastVal(s.y10)!=null && lastVal(s.y2)!=null) ? Math.round((lastVal(s.y10)-lastVal(s.y2))*100) : null,
+      ig_oas_bp: lastVal(s.oasIG)!=null ? Math.round(lastVal(s.oasIG)*100) : null,
+      hy_oas_bp: lastVal(s.oasHY)!=null ? Math.round(lastVal(s.oasHY)*100) : null,
+      vix: lastVal(s.vix)
+    },
+    complex: { var95_musd: +R.var95.toFixed(1), var99_musd: +R.var99.toFixed(1), diversification_benefit_pct: +R.divBenefit.toFixed(0) },
+    funds: R.perFund.map(r=>({
+      name: r.f.name, strategy: r.f.strat, nav_musd: r.f.nav,
+      duration: r.f.dur, spread_duration: +(r.f.sdIG+r.f.sdHY).toFixed(1), equity_beta: r.f.beta,
+      var95_musd: +r.var95.toFixed(1), var_limit_musd: r.f.varLimit,
+      limit_utilization_pct: +(r.var95/r.f.varLimit*100).toFixed(0),
+      trailing_year_max_drawdown_pct: +r.mdd.toFixed(1), drawdown_control_pct: r.f.ddLimit
+    })),
+    worst_stress: (()=>{ const rows = SCENARIOS.map(sc=>({name:sc.name, total: FUNDS.reduce((a,f)=>a+stressFund(f,sc),0)})); rows.sort((a,b)=>a.total-b.total); return rows.slice(0,2).map(r=>({scenario:r.name, complex_loss_musd:+r.total.toFixed(0)})); })(),
+    open_watch_items: ['HY energy sector concentration 21.8% vs 25% limit']
+  };
+  try{
+    const r = await fetch('/api/insights',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({snapshot})});
+    const j = await r.json();
+    if (!r.ok || !j.text) throw new Error(j.detail || j.error || 'No response');
+    out.innerHTML = mdToHtml(j.text);
+    note.textContent = 'Generated from the live risk snapshot at ' + new Date().toLocaleTimeString();
+  }catch(e){
+    out.innerHTML = '<p>Commentary service is not reachable right now. The snapshot below is what would be analyzed:</p><pre class="mono" style="white-space:pre-wrap;margin-top:10px;font-size:11.5px;background:#F1F3F5;padding:12px;border-radius:6px">'+JSON.stringify(snapshot,null,2)+'</pre>';
+  }
+  btn.disabled = false;
+  btn.textContent = "Generate Today's Commentary";
+});
+
+function mdToHtml(md){
+  return md
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/^## (.*)$/gm,'<h4>$1</h4>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^\d+\.\s(.*)$/gm,'<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g,'<ol>$1</ol>')
+    .replace(/\n{2,}/g,'<br>');
+}
+
+/* =====================================================
+   NAV + BOOT
+===================================================== */
+document.querySelector('nav').addEventListener('click', e=>{
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  e.target.classList.add('active');
+  $('tab-'+e.target.dataset.tab).classList.add('active');
+});
+
+async function boot(){
+  let F = null;
+  try{
+    const r = await fetch('/api/macro');
+    const j = await r.json();
+    if (j.live && j.series){
+      engine.market = j.series;
+      F = buildFactors(j.series);
+      engine.live = !!F;
+      renderFI(j.series);
+    }
+  }catch(e){ /* fall through */ }
+  if (!F){ F = fallbackFactors(); engine.live = false; }
+  engine.factors = F;
+  runEngine(F);
+  renderAll();
+  pushTicker(engine.market);
+}
+boot();
+setInterval(()=>pushTicker(engine.market), 30000);
+setInterval(boot, 30*60*1000);
+</script>
+</body>
+</html>
