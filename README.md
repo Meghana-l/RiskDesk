@@ -1,6 +1,6 @@
 # RiskDesk
 
-Live at: risk-desk-sigma.vercel.app
+Live at: https://risk-desk-sigma.vercel.app
 
 Independent fund risk monitoring command center for a multi-strategy asset manager. RiskDesk gives a risk oversight team one screen for the daily job: measuring, monitoring, and reporting risk across a fund complex — market risk, fixed income exposures, stress tests, limit governance, and the daily commentary that goes to senior risk management.
 
